@@ -25,6 +25,11 @@ import (
 	"github.com/minio/minio/pkg/console"
 )
 
+func justTheHostName() string {
+	ret, _ := os.Hostname()
+	return ret
+}
+
 // Collection of warp flags currently supported
 var globalFlags = []cli.Flag{
 	cli.BoolFlag{
@@ -183,7 +188,7 @@ var ioFlags = []cli.Flag{
 	},
 	cli.StringFlag{
 		Name:  "bucket",
-		Value: appName + "-benchmark-bucket",
+		Value: appName + "-benchmark-" + justTheHostName(),
 		Usage: "Bucket to use for benchmark data. ALL DATA WILL BE DELETED IN BUCKET!",
 	},
 	cli.StringFlag{
