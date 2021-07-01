@@ -39,7 +39,7 @@ import (
 	"github.com/minio/pkg/certs"
 	"github.com/minio/pkg/console"
 	"github.com/minio/pkg/ellipses"
-	"github.com/minio/warp/pkg"
+	"github.com/suykerbuyk/warp/pkg"
 	"golang.org/x/net/http2"
 )
 

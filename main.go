@@ -20,7 +20,7 @@ package main
 import (
 	"os"
 
-	"github.com/minio/warp/cli"
+	"github.com/suykerbuyk/warp/cli"
 )
 
 func main() {

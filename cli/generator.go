@@ -24,7 +24,7 @@ import (
 	"github.com/minio/mc/pkg/probe"
 
 	"github.com/minio/cli"
-	"github.com/minio/warp/pkg/generator"
+	"github.com/suykerbuyk/warp/pkg/generator"
 )
 
 var genFlags = []cli.Flag{

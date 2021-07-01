@@ -35,8 +35,8 @@ import (
 	"github.com/minio/madmin-go"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
-	"github.com/minio/warp/api"
-	"github.com/minio/warp/pkg/bench"
+	"github.com/suykerbuyk/warp/api"
+	"github.com/suykerbuyk/warp/pkg/bench"
 )
 
 var benchFlags = []cli.Flag{

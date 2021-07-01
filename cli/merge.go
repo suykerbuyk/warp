@@ -27,7 +27,7 @@ import (
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
-	"github.com/minio/warp/pkg/bench"
+	"github.com/suykerbuyk/warp/pkg/bench"
 )
 
 var mergeFlags = []cli.Flag{

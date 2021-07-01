@@ -34,7 +34,7 @@ import (
 	"github.com/minio/pkg/console"
 	"github.com/minio/pkg/trie"
 	"github.com/minio/pkg/words"
-	"github.com/minio/warp/pkg"
+	"github.com/suykerbuyk/warp/pkg"
 	completeinstall "github.com/posener/complete/cmd/install"
 )
 

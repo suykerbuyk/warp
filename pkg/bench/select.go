@@ -29,7 +29,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/pkg/console"
-	"github.com/minio/warp/pkg/generator"
+	"github.com/suykerbuyk/warp/pkg/generator"
 )
 
 // Select benchmarks download speed.

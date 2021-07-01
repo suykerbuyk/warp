@@ -32,8 +32,8 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/warp/api"
-	"github.com/minio/warp/pkg/bench"
+	"github.com/suykerbuyk/warp/api"
+	"github.com/suykerbuyk/warp/pkg/bench"
 )
 
 const warpServerVersion = 1

@@ -32,9 +32,9 @@ import (
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
 	"github.com/minio/pkg/console"
-	"github.com/minio/warp/api"
-	"github.com/minio/warp/pkg/aggregate"
-	"github.com/minio/warp/pkg/bench"
+	"github.com/suykerbuyk/warp/api"
+	"github.com/suykerbuyk/warp/pkg/aggregate"
+	"github.com/suykerbuyk/warp/pkg/bench"
 )
 
 var analyzeFlags = []cli.Flag{
