@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"github.com/minio/cli"
-	"github.com/minio/minio/pkg/console"
+	"github.com/minio/pkg/console"
 )
 
 func justTheHostName() string {
@@ -117,11 +117,6 @@ func setGlobals(quiet, debug, json, noColor bool) {
 	globalJSON = globalJSON || json
 	globalNoColor = globalNoColor || noColor
 
-	// Enable debug messages if requested.
-	if globalDebug {
-		console.DebugPrint = true
-	}
-
 	// Disable colorified messages if requested.
 	if globalNoColor || globalQuiet {
 		console.SetColorOff()
@@ -204,6 +199,10 @@ var ioFlags = []cli.Flag{
 	cli.BoolFlag{
 		Name:  "noprefix",
 		Usage: "Do not use separate prefix for each thread",
+	},
+	cli.StringFlag{
+		Name:  "prefix",
+		Usage: "Use a custom prefix for each thread",
 	},
 	cli.BoolFlag{
 		Name:  "disable-multipart",

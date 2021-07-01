@@ -46,6 +46,11 @@ type SingleSizedRequests struct {
 	SlowestMillis int `json:"slowest_millis"`
 	// Time to first byte if applicable.
 	FirstByte *TTFB `json:"first_byte,omitempty"`
+	// FirstAccess is filled if the same object is accessed multiple times.
+	// This records the first touch of the object.
+	FirstAccess *SingleSizedRequests `json:"first_access,omitempty"`
+	// Host names, sorted.
+	HostNames []string
 	// Request times by host.
 	ByHost map[string]SingleSizedRequests `json:"by_host,omitempty"`
 }
@@ -62,6 +67,16 @@ func (a *SingleSizedRequests) fill(ops bench.Operations) {
 	a.SlowestMillis = durToMillis(ops.Median(1).Duration())
 	a.FastestMillis = durToMillis(ops.Median(0).Duration())
 	a.FirstByte = TtfbFromBench(ops.TTFB(start, end))
+}
+
+func (a *SingleSizedRequests) fillFirst(ops bench.Operations) {
+	if !ops.IsMultiTouch() {
+		return
+	}
+	r := SingleSizedRequests{}
+	ops = ops.FilterFirst()
+	r.fill(ops)
+	a.FirstAccess = &r
 }
 
 type RequestSizeRange struct {
@@ -85,6 +100,10 @@ type RequestSizeRange struct {
 	BpsFastest float64 `json:"bps_fastest"`
 	BpsSlowest float64 `json:"bps_slowest"`
 
+	// FirstAccess is filled if the same object is accessed multiple times.
+	// This records the first touch of the object.
+	FirstAccess *RequestSizeRange `json:"first_access,omitempty"`
+
 	// Time to first byte if applicable.
 	FirstByte *TTFB `json:"first_byte,omitempty"`
 }
@@ -105,6 +124,18 @@ func (r *RequestSizeRange) fill(s bench.SizeSegment) {
 	r.BpsSlowest = s.Ops.Median(1).BytesPerSec().Float()
 }
 
+func (r *RequestSizeRange) fillFirst(s bench.SizeSegment) {
+	if !s.Ops.IsMultiTouch() {
+		return
+	}
+	s.Ops = s.Ops.FilterFirst()
+	a := RequestSizeRange{}
+	a.fill(s)
+	a.FirstByte = TtfbFromBench(s.Ops.TTFB(s.Ops.TimeRange()))
+
+	r.FirstAccess = &a
+}
+
 // MultiSizedRequests contains statistics when objects have the same different size.
 type MultiSizedRequests struct {
 	// Skipped if too little data.
@@ -116,6 +147,9 @@ type MultiSizedRequests struct {
 
 	// BySize contains request times separated by sizes
 	BySize []RequestSizeRange `json:"by_size"`
+
+	// HostNames are the host names, sorted.
+	HostNames []string
 
 	// ByHost contains request information by host.
 	ByHost map[string]RequestSizeRange `json:"by_host,omitempty"`
@@ -139,6 +173,7 @@ func (a *MultiSizedRequests) fill(ops bench.Operations) {
 			s := sizes[i]
 			var r RequestSizeRange
 			r.fill(s)
+			r.fillFirst(s)
 			r.FirstByte = TtfbFromBench(s.Ops.TTFB(start, end))
 			// Store
 			a.BySize[i] = r
@@ -160,6 +195,8 @@ func RequestAnalysisSingleSized(o bench.Operations, allThreads bool) *SingleSize
 		return &res
 	}
 	res.fill(active)
+	res.fillFirst(o)
+	res.HostNames = o.Endpoints()
 	res.ByHost = RequestAnalysisHostsSingleSized(o)
 
 	return &res
@@ -204,6 +241,7 @@ func RequestAnalysisMultiSized(o bench.Operations, allThreads bool) *MultiSizedR
 	}
 	res.fill(active)
 	res.ByHost = RequestAnalysisHostsMultiSized(active)
+	res.HostNames = active.Endpoints()
 	return &res
 }
 

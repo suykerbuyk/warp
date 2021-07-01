@@ -22,6 +22,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"path"
 	"runtime"
 )
 
@@ -94,13 +95,13 @@ func MergeObjectPrefixes(o []Objects) []string {
 
 func (o *Object) setPrefix(opts Options) {
 	if opts.randomPrefix <= 0 {
-		o.Prefix = ""
+		o.Prefix = opts.customPrefix
 		return
 	}
 	b := make([]byte, opts.randomPrefix)
 	rng := rand.New(rand.NewSource(int64(rand.Uint64())))
 	randASCIIBytes(b, rng)
-	o.Prefix = string(b)
+	o.Prefix = path.Join(opts.customPrefix, string(b))
 }
 
 func (o *Object) setName(s string) {
@@ -174,6 +175,7 @@ func randASCIIBytes(dst []byte, rng *rand.Rand) {
 
 // GetExpRandSize will return an exponential random size from 1 to and including max.
 // Minimum size: 127 bytes, max scale is 256 times smaller than max size.
+// Average size will be max_size * 0.179151.
 func GetExpRandSize(rng *rand.Rand, max int64) int64 {
 	if max < 10 {
 		if max == 0 {

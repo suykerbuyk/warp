@@ -31,7 +31,7 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-	"github.com/minio/minio/pkg/console"
+	"github.com/minio/pkg/console"
 )
 
 type Operations []Operation
@@ -173,15 +173,15 @@ func (t Throughput) String() string {
 		return fmt.Sprintf("%.1fB/s", float64(t))
 	}
 	if t < 2<<20 {
-		return fmt.Sprintf("%.1fKiB/s", float64(t/1024))
+		return fmt.Sprintf("%.1fKiB/s", float64(t)/(1<<10))
 	}
 	if t < 10<<30 {
-		return fmt.Sprintf("%.1fMiB/s", float64(t/1024/1024))
+		return fmt.Sprintf("%.1fMiB/s", float64(t)/(1<<20))
 	}
 	if t < 10<<40 {
-		return fmt.Sprintf("%.2fGiB/s", float64(t/1024/1024/1024))
+		return fmt.Sprintf("%.2fGiB/s", float64(t)/(1<<30))
 	}
-	return fmt.Sprintf("%.2fTiB/s", float64(t/1024/1024/1024))
+	return fmt.Sprintf("%.2fTiB/s", float64(t)/(1<<40))
 }
 
 // Float returns a rounded (to 0.1) float value of the throughput.
@@ -297,6 +297,19 @@ func (o Operations) SortByStartTime() {
 	}
 	sort.Slice(o, func(i, j int) bool {
 		return o[i].Start.Before(o[j].Start)
+	})
+}
+
+// SortByEndTime will sort the operations by end time.
+// Earliest operations first.
+func (o Operations) SortByEndTime() {
+	if sort.SliceIsSorted(o, func(i, j int) bool {
+		return o[i].End.Before(o[j].End)
+	}) {
+		return
+	}
+	sort.Slice(o, func(i, j int) bool {
+		return o[i].End.Before(o[j].End)
 	})
 }
 
@@ -429,6 +442,18 @@ func (o Operations) OpTypes() []string {
 // IsMixed returns true if different operation types are overlapping.
 func (o Operations) IsMixed() bool {
 	return o.isMixed(o.OpTypes())
+}
+
+// IsMultiTouch returns true if the same files are touched multiple times.
+func (o Operations) IsMultiTouch() bool {
+	seen := make(map[string]struct{}, len(o))
+	for _, op := range o {
+		if _, ok := seen[op.File]; ok {
+			return true
+		}
+		seen[op.File] = struct{}{}
+	}
+	return false
 }
 
 // HasError returns whether one or more operations failed.
@@ -883,6 +908,31 @@ func (o Operations) FilterSuccessful() Operations {
 	return ok
 }
 
+// Clone the operations.
+func (o Operations) Clone() Operations {
+	c := make(Operations, len(o))
+	copy(c, o)
+	return c
+}
+
+// FilterFirst returns the first operation on any file.
+func (o Operations) FilterFirst() Operations {
+	if len(o) == 0 {
+		return nil
+	}
+	ok := make(Operations, 0, 1000)
+	seen := make(map[string]struct{}, len(o))
+	for _, op := range o {
+		if _, ok := seen[op.File]; ok {
+			continue
+		}
+		seen[op.File] = struct{}{}
+		ok = append(ok, op)
+	}
+
+	return ok
+}
+
 // Errors returns the errors found.
 func (o Operations) FilterErrors() Operations {
 	if len(o) == 0 {
@@ -956,6 +1006,22 @@ func OperationsFromCSV(r io.Reader, analyzeOnly bool, offset, limit int, log fun
 		cb++
 		return clientMap[c]
 	}
+	var fileMap = func(s string) string {
+		return s
+	}
+	if analyzeOnly {
+		// When analyzing map file names to a number for less RAM.
+		var i int
+		m := make(map[string]int)
+		fileMap = func(s string) string {
+			if v, ok := m[s]; ok {
+				return strconv.Itoa(v)
+			}
+			i++
+			m[s] = i
+			return strconv.Itoa(i)
+		}
+	}
 	for {
 		values, err := cr.Read()
 		if err == io.EOF {
@@ -1006,10 +1072,8 @@ func OperationsFromCSV(r io.Reader, analyzeOnly bool, offset, limit int, log fun
 		if idx, ok := fieldIdx["client_id"]; ok {
 			clientID = values[idx]
 		}
-		var file string
-		if !analyzeOnly {
-			file = values[fieldIdx["file"]]
-		}
+		file := fileMap(values[fieldIdx["file"]])
+
 		ops = append(ops, Operation{
 			OpType:    values[fieldIdx["op"]],
 			ObjPerOp:  int(objs),

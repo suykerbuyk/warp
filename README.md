@@ -1,4 +1,4 @@
-![warp](warp_logo.png)
+![warp](https://raw.githubusercontent.com/minio/warp/master/warp_logo.png)
 
 S3 benchmarking tool.
 
@@ -68,7 +68,7 @@ For further details, the `--analyze.v` parameter can also be used.
 
 # Distributed Benchmarking
 
-![distributed](arch_warp.png)
+![distributed](https://raw.githubusercontent.com/minio/warp/master/arch_warp.png)
 
 It is possible to coordinate several warp instances automatically.
 This can be useful for testing performance of a cluster from several clients at once.
@@ -196,6 +196,10 @@ Throughput, split into 29 x 1s:
  * 50% Median: 4602.6MiB/s, 2740.27 obj/s (1s, starting 19:03:56 CEST)
  * Slowest: 4287.0MiB/s, 2399.84 obj/s (1s, starting 19:03:53 CEST)
 ```
+
+The average object size will be close to `--obj.size` multiplied by 0.179151. 
+
+To get a value for `--obj.size` multiply the desired average object size by 5.582 to get a maximum value. 
 
 ## Automatic Termination
 Adding `--autoterm` parameter will enable automatic termination when results are considered stable. 

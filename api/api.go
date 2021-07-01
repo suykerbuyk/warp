@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zstd"
-	"github.com/minio/minio/pkg/console"
+	"github.com/minio/pkg/console"
 	"github.com/minio/warp/pkg/aggregate"
 	"github.com/minio/warp/pkg/bench"
 )
@@ -247,21 +247,14 @@ func (s *Server) handleDownloadJSON(w http.ResponseWriter, req *http.Request) {
 	enc.Encode(ops)
 }
 
-// handleRootAPI handles requests to `/v1`.
-func (s *Server) handleRootAPI(w http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodDelete {
-		w.WriteHeader(200)
-		w.Write([]byte(`bye...`))
-		s.server.Close()
+// handleStop handles requests to `/v1/stop`, stops the service.
+func (s *Server) handleStop(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if req.Method == http.MethodGet {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		w.Write([]byte(`{"status": "ok"}`))
-		return
-	}
-	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte(`bye...`))
+	s.server.Close()
 }
 
 // NewBenchmarkMonitor creates a new Server.
@@ -273,8 +266,8 @@ func NewBenchmarkMonitor(listenAddr string) *Server {
 
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/stop", s.handleStop)
 	mux.HandleFunc("/v1/status", s.handleStatus)
-	mux.HandleFunc("/v1", s.handleRootAPI)
 	mux.HandleFunc("/v1/aggregated", s.handleAggregated)
 	mux.HandleFunc("/v1/operations/json", s.handleDownloadJSON)
 	mux.HandleFunc("/v1/operations", s.handleDownloadZst)

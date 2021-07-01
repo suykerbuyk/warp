@@ -31,7 +31,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/minio/cli"
 	"github.com/minio/mc/pkg/probe"
-	"github.com/minio/minio/pkg/console"
+	"github.com/minio/pkg/console"
 	"github.com/minio/warp/api"
 	"github.com/minio/warp/pkg/aggregate"
 	"github.com/minio/warp/pkg/bench"
@@ -81,10 +81,8 @@ var analyzeFlags = []cli.Flag{
 		Usage: "Display additional analysis data.",
 	},
 	cli.StringFlag{
-		Name:   serverFlagName,
-		Usage:  "When running benchmarks open a webserver on this ip:port and keep it running afterwards.",
-		Value:  "",
-		Hidden: true,
+		Name:  serverFlagName,
+		Usage: "When running benchmarks open a webserver to fetch results remotely, eg: localhost:7762",
 	},
 }
 
@@ -290,16 +288,9 @@ func printAnalysis(ctx *cli.Context, o bench.Operations) {
 		return
 	}
 
-	for i, ops := range aggr.Operations {
+	for _, ops := range aggr.Operations {
 		typ := ops.Type
-		if i > 0 {
-			console.Println("\n-------------------")
-		}
-		fmt.Println("")
-		if ops.Skipped {
-			console.Println("Skipping", typ, "too few samples. Longer benchmark run required for reliable results.")
-			continue
-		}
+		console.Println("\n----------------------------------------")
 
 		opo := ops.ObjectsPerOperation
 		console.SetColor("Print", color.New(color.FgHiWhite))
@@ -327,11 +318,21 @@ func printAnalysis(ctx *cli.Context, o bench.Operations) {
 			console.SetColor("Print", color.New(color.FgHiRed))
 			console.Println("Errors:", ops.Errors)
 			if details {
+				console.SetColor("Print", color.New(color.FgWhite))
+				console.Println("First Errors:")
 				for _, err := range ops.FirstErrors {
-					console.Println(err)
+					console.Println(" *", err)
 				}
+				console.Println("")
 			}
 		}
+
+		if ops.Skipped {
+			console.SetColor("Print", color.New(color.FgHiWhite))
+			console.Println("Skipping", typ, "too few samples. Longer benchmark run required for reliable results.")
+			continue
+		}
+
 		if details {
 			printRequestAnalysis(ctx, ops, details)
 			console.SetColor("Print", color.New(color.FgHiWhite))
@@ -344,7 +345,8 @@ func printAnalysis(ctx *cli.Context, o bench.Operations) {
 			console.SetColor("Print", color.New(color.FgHiWhite))
 			console.Println("\nThroughput by host:")
 
-			for ep, ops := range eps {
+			for _, ep := range ops.HostNames {
+				ops := eps[ep]
 				console.SetColor("Print", color.New(color.FgWhite))
 				console.Print(" * ", ep, ":")
 				if !details {
@@ -439,23 +441,41 @@ func printRequestAnalysis(ctx *cli.Context, ops aggregate.Operation, details boo
 			return
 		}
 
-		console.Println(
-			" * Avg:", time.Duration(reqs.DurAvgMillis)*time.Millisecond,
-			"50%:", time.Duration(reqs.DurMedianMillis)*time.Millisecond,
-			"90%:", time.Duration(reqs.Dur90Millis)*time.Millisecond,
-			"99%:", time.Duration(reqs.Dur99Millis)*time.Millisecond,
-			"Fastest:", time.Duration(reqs.FastestMillis)*time.Millisecond,
-			"Slowest:", time.Duration(reqs.SlowestMillis)*time.Millisecond,
-		)
+		console.Print(
+			" * Avg: ", time.Duration(reqs.DurAvgMillis)*time.Millisecond,
+			", 50%: ", time.Duration(reqs.DurMedianMillis)*time.Millisecond,
+			", 90%: ", time.Duration(reqs.Dur90Millis)*time.Millisecond,
+			", 99%: ", time.Duration(reqs.Dur99Millis)*time.Millisecond,
+			", Fastest: ", time.Duration(reqs.FastestMillis)*time.Millisecond,
+			", Slowest: ", time.Duration(reqs.SlowestMillis)*time.Millisecond,
+			"\n")
 
 		if reqs.FirstByte != nil {
 			console.Println(" * First Byte:", reqs.FirstByte)
 		}
+
+		if reqs.FirstAccess != nil {
+			reqs := reqs.FirstAccess
+			console.Print(
+				" * First Access: Avg: ", time.Duration(reqs.DurAvgMillis)*time.Millisecond,
+				", 50%: ", time.Duration(reqs.DurMedianMillis)*time.Millisecond,
+				", 90%: ", time.Duration(reqs.Dur90Millis)*time.Millisecond,
+				", 99%: ", time.Duration(reqs.Dur99Millis)*time.Millisecond,
+				", Fastest: ", time.Duration(reqs.FastestMillis)*time.Millisecond,
+				", Slowest: ", time.Duration(reqs.SlowestMillis)*time.Millisecond,
+				"\n")
+			if reqs.FirstByte != nil {
+				console.Print(" * First Access TTFB: ", reqs.FirstByte)
+			}
+			console.Println("")
+		}
+
 		if eps := reqs.ByHost; len(eps) > 1 && details {
 			console.SetColor("Print", color.New(color.FgHiWhite))
 			console.Println("\nRequests by host:")
 
-			for ep, reqs := range eps {
+			for _, ep := range reqs.HostNames {
+				reqs := eps[ep]
 				if reqs.Requests <= 1 {
 					continue
 				}
@@ -501,15 +521,32 @@ func printRequestAnalysis(ctx *cli.Context, ops aggregate.Operation, details boo
 			", Fastest: ", bench.Throughput(s.BpsFastest),
 			", Slowest: ", bench.Throughput(s.BpsSlowest),
 			"\n")
+
 		if s.FirstByte != nil {
 			console.Println(" * First Byte:", s.FirstByte)
 		}
+
+		if s.FirstAccess != nil {
+			s := s.FirstAccess
+			console.Print(""+
+				" * First Access: Average: ", bench.Throughput(s.BpsAverage),
+				", 50%: ", bench.Throughput(s.BpsMedian),
+				", 90%: ", bench.Throughput(s.Bps90),
+				", 99%: ", bench.Throughput(s.Bps99),
+				", Fastest: ", bench.Throughput(s.BpsFastest),
+				", Slowest: ", bench.Throughput(s.BpsSlowest),
+				"\n")
+			if s.FirstByte != nil {
+				console.Print(" * First Access TTFB: ", s.FirstByte, "\n")
+			}
+		}
+
 	}
 	if eps := reqs.ByHost; len(eps) > 1 && details {
 		console.SetColor("Print", color.New(color.FgHiWhite))
 		console.Println("\nRequests by host:")
 
-		for ep, s := range eps {
+		for ep, s := range reqs.ByHost {
 			if s.Requests <= 1 {
 				continue
 			}

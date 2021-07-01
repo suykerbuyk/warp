@@ -31,13 +31,14 @@ import (
 	"time"
 
 	"github.com/minio/cli"
+	"github.com/minio/madmin-go"
 	"github.com/minio/mc/pkg/probe"
 	md5simd "github.com/minio/md5-simd"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/minio/minio/pkg/console"
-	"github.com/minio/minio/pkg/ellipses"
-	"github.com/minio/minio/pkg/madmin"
+	"github.com/minio/pkg/certs"
+	"github.com/minio/pkg/console"
+	"github.com/minio/pkg/ellipses"
 	"github.com/minio/warp/pkg"
 	"golang.org/x/net/http2"
 )
@@ -216,7 +217,7 @@ func clientTransport(ctx *cli.Context) http.RoundTripper {
 // parseHosts will parse the host parameter given.
 func parseHosts(h string) []string {
 	hosts := strings.Split(h, ",")
-	dst := make([]string, 0, len(hosts))
+	var dst []string
 	for _, host := range hosts {
 		if !ellipses.HasEllipses(host) {
 			dst = append(dst, host)
@@ -228,8 +229,8 @@ func parseHosts(h string) []string {
 
 			log.Fatal(perr.Error())
 		}
-		for _, p := range patterns {
-			dst = append(dst, p.Expand()...)
+		for _, lbls := range patterns.Expand() {
+			dst = append(dst, strings.Join(lbls, ""))
 		}
 	}
 	return dst
@@ -237,11 +238,14 @@ func parseHosts(h string) []string {
 
 // mustGetSystemCertPool - return system CAs or empty pool in case of error (or windows)
 func mustGetSystemCertPool() *x509.CertPool {
-	pool, err := x509.SystemCertPool()
+	rootCAs, err := certs.GetRootCAs("")
 	if err != nil {
-		return x509.NewCertPool()
+		rootCAs, err = x509.SystemCertPool()
+		if err != nil {
+			return x509.NewCertPool()
+		}
 	}
-	return pool
+	return rootCAs
 }
 
 func newAdminClient(ctx *cli.Context) *madmin.AdminClient {
